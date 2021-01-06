@@ -5,13 +5,16 @@ Create epub files from web content using rust.
 You can install rustpub through cargo with just a line command in your terminal:
 
 ```
+$ pip install readabilipy
 $ cargo install rustpub
 ```
 
 Rustpub can also be compiled from source:
 
 ```
-$ git clone https://github.com/mr-chrome/rustpub.git && cd rustpub && cargo build --release
+$ git clone https://github.com/mr-chrome/rustpub.git
+&& cd rustpub
+&& cargo build --release
 ```
 
 You will find your binary in `rustpub/target/release`.
@@ -43,3 +46,8 @@ kindle with ease.
 - Image optimization and resizing;
 - Rust sanitation functions for web pages;
 - Mobi format support;
+
+## Thanks to
+- This software get his CSS file from [epub-css-starter-kit](https://github.com/mattharrison/epub-css-starter-kit);
+- [ReadabiliPy](https://github.com/alan-turing-institute/ReadabiliPy) is used for sanitation of the HTML code;
+- [Epub-builder](https://github.com/lise-henry/epub-builder) for building actual epub archive.
