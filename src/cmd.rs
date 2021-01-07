@@ -1,26 +1,15 @@
 use std::process::Command;
+use crate::RustpubParser;
 
-pub enum ReadabiliPyParser {
-    Python,
-    Mozilla,
-}
-
-pub struct ReadabiliPyCmd {
-    parser: ReadabiliPyParser,
-}
+pub struct ReadabiliPyCmd {}
 
 impl ReadabiliPyCmd {
-    pub fn new(parser: ReadabiliPyParser) -> Self {
-        Self {
-            parser,
-        }
-    }
+    pub fn json_from_file(parser: RustpubParser, html_fpath: String, json_fpath: String) -> String {
 
-    pub fn json_from_file(&self, html_fpath: String, json_fpath: String) -> String {
-
-        let parser_arg = match self.parser {
-            ReadabiliPyParser::Python => { "-p" },
-            ReadabiliPyParser::Mozilla => { "" },
+        let parser_arg = match parser {
+            RustpubParser::BeautifulSoup => { "-p" },
+            RustpubParser::Mozilla => { "" },
+            _ => "",
         };
 
         let arg = format!(

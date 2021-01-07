@@ -7,10 +7,10 @@ pub struct Arguments {
     pub output: String,
     pub rustpub_test_url: String,
     pub verbose: bool,
+    pub parser: Option<String>,
 }
 
 impl Arguments {
-    // rustpub -u https://... -o nomelibro
     pub fn cli() -> Arguments {
         let env_key = env::var("RUSTPUB_TEST_URL");
 
@@ -28,6 +28,13 @@ impl Arguments {
                     .conflicts_with("test_url"),
             )
             .arg(
+                Arg::with_name("parser")
+                    .short("p")
+                    .long("parser")
+                    .takes_value(true)
+                    .help("Select parser that will sanitize the webpage."),
+            )
+            .arg(
                 Arg::with_name("output")
                     .short("o")
                     .long("output")
@@ -40,7 +47,7 @@ impl Arguments {
                     .short("t")
                     .help("URL for testing")
                     .takes_value(false)
-                    .required(env_key.is_err()),
+                    .required(false),
             )
             .arg(
                 Arg::with_name("verbose")
@@ -57,6 +64,8 @@ impl Arguments {
                 Some(d) => d.to_string(),
                 None => "ebook".to_string(),
             },
+
+            parser: matches.value_of("parser").map(|s| s.to_string()),
 
             rustpub_test_url: match matches.value_of("test_url") {
                 Some(a) => a.to_string(),

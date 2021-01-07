@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::cell::Cell;
 
 extern crate tera;
-extern crate image;
+// extern crate image;
 extern crate soup;
 extern crate url;
 extern crate epub_builder;
@@ -12,12 +12,14 @@ extern crate serde;
 extern crate serde_json;
 
 use tempfile::Builder;
-use image::io::Reader as ImageReader;
+// use image::io::Reader as ImageReader;
 use soup::prelude::*;
 use url::{Url, ParseError};
-use epub_builder::{EpubBuilder, ZipLibrary, EpubContent, ReferenceType, TocElement};
-use serde::{Deserialize};
-use crate::cmd::{ReadabiliPyCmd, ReadabiliPyParser};
+use epub_builder::{EpubBuilder, ZipLibrary, EpubContent};
+use serde::Deserialize;
+use crate::cmd::ReadabiliPyCmd;
+use crate::RustpubParser;
+use crate::parser::KuchikiParser;
 
 mod errors {
     error_chain! {
@@ -89,16 +91,15 @@ impl Downloader {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Article {
-    title: Option<String>,  // The article title
-    byline: Option<String>,  // Author information
+pub struct Document {
+    title: Option<String>,
+    byline: Option<String>,  // author
     date: Option<String>,
     content: Option<String>,
-    plain_content: Option<String>,  // plain content of the article, preserving the HTML structure
 }
 
-impl Article {
-    pub fn epub_from_url(target: String) -> Result<()> {
+impl Document {
+    pub fn epub_from_url(target: String, output: String, parser: RustpubParser) -> Result<()> {
         // Parse target URL
         let target_url = Url::parse(&target);
 
@@ -112,7 +113,7 @@ impl Article {
         };
 
         // Make temp dir
-        let tmp_dir = Builder::new().prefix("kindle-pult_").tempdir()?;
+        let tmp_dir = Builder::new().prefix("rustpub_").tempdir()?;
         // Persist the tempdir and return PathBuf
         let tmp_dir_path = tmp_dir.into_path();
 
@@ -122,61 +123,47 @@ impl Article {
         let local_abs_path_string = downloader.download_from(target_url.unwrap());
 
         // Purify HTML
-        let purifier = ReadabiliPyCmd::new(ReadabiliPyParser::Mozilla);  // Select parser
+        let document: Document;
 
-        let outfile_path = tmp_dir_path.join("article.json");  // TODO: use fname
-        let outfile_path_string = outfile_path.clone().into_os_string().into_string().unwrap();
+        match parser {
+            RustpubParser::Kuchiki => {
+                let path = local_abs_path_string.unwrap();
+                let html = fs::read_to_string(path.clone())?;
+                KuchikiParser::parse(html);
 
-        // Generate json file with ReadabiliPy
-        // TODO: print feedback to GUI
-        purifier.json_from_file(local_abs_path_string.unwrap(), outfile_path_string);
+                // MOMENTANEO
+                let outfile_path = tmp_dir_path.join("document.json");
+                let outfile_path_string = outfile_path.clone().into_os_string().into_string().unwrap();
 
-        // Read Json, deserialize and print Rust data structure.
-        // TODO: print article info to GUI
-        let json_file = fs::File::open(outfile_path).expect("file not found");
-        let article: Article = serde_json::from_reader(json_file).expect("error reading json");
+                ReadabiliPyCmd::json_from_file(
+                    RustpubParser::Mozilla,
+                    path.clone(),
+                    outfile_path_string
+                );
+
+                // Read Json, deserialize and print Rust data structure.
+                let json_file = fs::File::open(outfile_path).expect("file not found");
+                document = serde_json::from_reader(json_file).expect("error reading json");
+            },
+            RustpubParser::Mozilla | RustpubParser::BeautifulSoup => {
+                // Generate json file with ReadabiliPy
+                let outfile_path = tmp_dir_path.join("document.json");  // TODO: use fname
+                let outfile_path_string = outfile_path.clone().into_os_string().into_string().unwrap();
+
+                ReadabiliPyCmd::json_from_file(
+                    parser,
+                    local_abs_path_string.unwrap(),
+                    outfile_path_string
+                );
+
+                // Read Json, deserialize and print Rust data structure.
+                let json_file = fs::File::open(outfile_path).expect("file not found");
+                document = serde_json::from_reader(json_file).expect("error reading json");
+            }
+        };
 
         // Get absolute image urls
-        let image_urls = match article.clone().content {
-            Some(content) => {
-                let mut urls = Vec::new();
-                let soup = Soup::new(&content);
-
-                for img in soup.tag("img").find_all() {
-                    let image_url = img.get("src").expect("Couldn't find `src` attribute");
-
-                    // Make sure URL is absolute and add it to urls vector;
-                    match Url::parse(&image_url) {
-                        Ok(url) => {
-                            urls.push(url);
-                        },  // Already absolute, send to vector
-                        Err(e) => {
-                            match e {
-                                ParseError::RelativeUrlWithoutBase => {
-                                    println!("Relative URL: {}", &image_url);
-                                    let target_url = Url::parse(&target);  // Second parsing
-                                    let absolute_url = target_url.unwrap().join(&image_url)
-                                        .expect("Can't make absolute URL of image");
-
-                                    println!("absolute URL: {}", &absolute_url);
-                                    urls.push(absolute_url);
-                                },  // Relative URL error
-                                _ => {
-                                    println!("errore: {}", e);
-                                    return Ok(())
-                                }  // Unknown error
-                            };  // match error
-                        }  // if error
-                    }  // match url parse
-                };
-
-                println!("Image URLS: {:?}", urls);
-                urls
-            },
-            None => {
-                Vec::new()
-            } // Empty vector
-        };
+        let image_urls = Document::extract_image_urls(target.clone(), document.clone().content);
 
         // Download images
         downloader.file_type.set(DLFileType::Image);
@@ -188,15 +175,16 @@ impl Article {
         }
 
         // Build epub
-        // Create a new EpubBuilder using the zip library
         let mut epub: Vec<u8> = vec!();
-        let mut epub_dest = fs::File::create("book.epub")?;  // TODO: use sluggified title
+        let epub_filename = format!("{}.epub", output);
+        let mut epub_dest = fs::File::create(epub_filename)?;  // TODO: use sluggified title if None
 
-        let epub_title = article.title.unwrap_or("Unknown".into());
-        let epub_author = article.byline.unwrap_or("Unknown".into());
+        let epub_title = document.title.unwrap_or("Unknown".into());
+        let epub_author = document.byline.unwrap_or("Unknown".into());
 
         let css_file = fs::File::open(&"assets/stylesheet.css")?;
 
+        // Rendering content
         let mut tera = match tera::Tera::new("templates/**/*") {
             Ok(t) => t,
             Err(e) => {
@@ -207,27 +195,20 @@ impl Article {
 
         tera.autoescape_on(vec![]);  // Don't escape context values!
 
-        // Context
         let mut context = tera::Context::new();
         context.insert("title", &epub_title);
         context.insert("author", &epub_author);
-        context.insert("content", &article.content.unwrap_or("Unknown".into()));
+        context.insert("content", &document.content.unwrap_or("Unknown".into()));
 
-        // Rendering
         let epub_content = tera.render("introduction.html", &context)?;
 
-        // Epub building
+        // Building
         let mut builder = EpubBuilder::new(ZipLibrary::new()?)?;
 
-        // Metadata
         builder.metadata("author", epub_author)?;
         builder.metadata("title", epub_title.clone())?;
-
-        // CSS
-        builder.stylesheet(css_file)?;
-
-        // Content
-        builder.add_content(EpubContent::new("article.xhtml", epub_content.as_bytes()))?;
+        builder.stylesheet(css_file)?;  // CSS
+        builder.add_content(EpubContent::new("document.xhtml", epub_content.as_bytes()))?;
 
         for img_strpath in local_abs_image_paths {
             // Image string path
@@ -255,6 +236,7 @@ impl Article {
             builder.add_resource(filename, &img, ext)?;
         };
 
+        builder.inline_toc(); // Index in document
         builder.generate(&mut epub)?;
 
         io::copy(&mut &epub[..], &mut epub_dest)
@@ -265,4 +247,50 @@ impl Article {
 
         Ok(())
     }
-}
+
+    fn extract_image_urls(target: String, doc_content: Option<String>) -> Vec<Url> {
+        let image_urls = match doc_content {
+            Some(content) => {
+                let mut urls = Vec::new();
+                let soup = Soup::new(&content);
+
+                for img in soup.tag("img").find_all() {
+                    let image_url = img.get("src").expect("Couldn't find `src` attribute");
+
+                    // Make sure URL is absolute and add it to urls vector;
+                    match Url::parse(&image_url) {
+                        Ok(url) => {
+                            urls.push(url);
+                        },  // Already absolute, send to vector
+                        Err(e) => {
+                            match e {
+                                ParseError::RelativeUrlWithoutBase => {
+                                    println!("Relative URL: {}", &image_url);
+                                    let target_url = Url::parse(&target);  // Second parsing
+                                    let absolute_url = target_url.unwrap().join(&image_url)
+                                        .expect("Can't make absolute URL of image");
+
+                                    println!("absolute URL: {}", &absolute_url);
+                                    urls.push(absolute_url);
+                                },  // Relative URL error
+                                _ => {
+                                    println!("errore: {}", e);
+                                    return Vec::new()
+                                }  // Unknown error
+                            };  // match error
+                        }  // if error
+                    }  // match url parse
+                };  // for img in soup
+
+                println!("Image URLS: {:?}", urls);
+                urls
+            },
+            None => {
+                Vec::new()
+            } // Empty vector
+        };
+
+        image_urls
+    }  // extract_image_urls
+
+}  // Document
