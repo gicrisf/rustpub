@@ -7,8 +7,8 @@ impl ReadabiliPyCmd {
     pub fn json_from_file(parser: RustpubParser, html_fpath: String, json_fpath: String) -> String {
 
         let parser_arg = match parser {
-            RustpubParser::BeautifulSoup => { "-p" },
-            RustpubParser::Mozilla => { "" },
+            RustpubParser::ReadabiliPy => { "-p" },
+            RustpubParser::ReadabilityJs => { "" },
             _ => "",
         };
 

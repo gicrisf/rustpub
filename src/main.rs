@@ -1,7 +1,6 @@
 mod cli;
 mod cmd;
 mod epub;
-mod parser;
 
 use crate::cli::Arguments;
 use epub::Document;
@@ -10,9 +9,9 @@ use epub::Document;
 extern crate error_chain;
 
 pub enum RustpubParser {
-    BeautifulSoup,
-    Mozilla,
-    Kuchiki,
+    ReadabiliPy,
+    ReadabilityJs,
+    ReadabilityRs,
 }
 
 fn main() {
@@ -22,10 +21,10 @@ fn main() {
     let parser = args.parser.unwrap_or("".into());
 
     let parser = match &parser[..] {
-        "py" => RustpubParser::BeautifulSoup,
-        "js" => RustpubParser::Mozilla,
-        "rs" => RustpubParser::Kuchiki,
-        _ => RustpubParser::Mozilla,
+        "py" => RustpubParser::ReadabiliPy,
+        "js" => RustpubParser::ReadabilityJs,
+        "rs" => RustpubParser::ReadabilityRs,
+        _ => RustpubParser::ReadabilityRs,
     };
 
     let _res = Document::epub_from_url(url, args.output, parser);
