@@ -1,44 +1,43 @@
 # Rustpub
 Create epub files from web content using rust.
 
+Rustpub is a CLI program and a library for web-content epub generation.
+
 ## Installation
-You can install rustpub with just a couple of lines in your terminal:
+Installation is easy as launching a single command on your terminal:
 
 ```
-$ pip install readabilipy
-$ cargo install rustpub
+$ git clone https://github.com/mr-chrome/rustpub && cargo install --path ./rustpub
 ```
 
-Rustpub can also be compiled from source:
-
-```
-$ git clone https://github.com/mr-chrome/rustpub.git
-&& cd rustpub
-&& cargo build --release
-```
-
-You will find your binary in `rustpub/target/release`.
-
-## Remember!
-Rustpub is totally written in Rust, but the sanitation functions are inherited
-by Node or Python code; in the future Rustpub is going to integrate a pure-rust
-solution for this part of the process, but now you need at least Python and pip
-installed on your machine.
-
-Node, instead, is an optional: you need it only if you want to use Mozilla's
-Readability.js library, the one which is integrated in Firefox browser for reader
-mode.
+I'm going to load this software on cargo really soon, but meanwhile git is the
+way to go.
 
 ## Quickstart
 
-Launch a simple command like this
+Just give rustpub a URL and it will make the requested epub:
+
 ```
 $ rustpub -u https://www.zwitterio.it/articoli/come-funziona-il-vaccino-azoxford.html
 ```
 
+### Options
+
 Optional arguments:
-- `-o filename` in order to choose epub file name (gives `filename.epub`);
-- `-t` for developers, in order to test with a custom and pre-selected url.
+- `-o [FILENAME]` or `--output [FILENAME]` for choosing a custom epub file name;
+- `-test` for developers, in order to test with a custom and pre-selected url.
+- `--parser` for selecting python and javascript optional parsers.
+
+Rustpub is totally written in Rust, but you can choose between three parsers:
+- The default one, written in Rust ([Readability (Rs)](https://github.com/kumabook/readability));
+- The Python one, based on the famous library Beautiful Soup 4: [ReadabiliPy](https://github.com/alan-turing-institute/ReadabiliPy);
+- The Javascript one, written by Mozilla for reader mode on Firefox browser: [Readability (Js)](https://github.com/mozilla/readability).
+
+Of course, the Python and Javascript parsers require respectively Python and Node
+installed on your machine to be used by Rustpub for content rendering.
+If you desire alternative parsers because you don't like the default one or
+just because is always fun to try other ways, you don't need to panic:
+[installing them is as easy as the main installation was](#alternative-parsers-installation).
 
 ## Features
 - Rustpub is easy to use and to install;
@@ -47,14 +46,44 @@ Optional arguments:
 it was born to be used by Kindle-pult, my GTK app to send web pages or epubs to
 kindle with ease.
 
+## Alternative parsers installation
+First of all, make sure you have Python installed on your machine, using this
+command:
+```
+$ python --version
+```
+
+It should return something like this: `Python 3.8.5`. If it doesn't do that,
+pleas [install Python](https://www.python.org/downloads/).
+
+Is Python package manager installed too? Verify that with another command:
+```
+$ pip --version
+```
+
+If not, [install pip](https://pip.pypa.io/en/stable/installing/).
+
+Finally, install ReadabiliPy, using pip:
+
+```
+$ pip install readabilipy
+```
+
+Now you're ready to go with `--parser py`.
+
+> But I want Modilla Javascript parser! I want to be sure my ebooks will be like
+reader-mode firefox version of my articles.
+
+Then you need Node JS. If you haven't, [install it too](https://nodejs.org/).
+If you already have Node, just use `--parser js` as argument and you will not
+be disappointed.
+
 ## TODOS
 - Image optimization and resizing;
-- Rust sanitation functions for web pages;
 - Mobi format support;
-- CLI arguments to select sanitation mode;
 - Progress bar.
 
 ## Thanks to
-- [epub-css-starter-kit](https://github.com/mattharrison/epub-css-starter-kit) is where CSS is get from;
-- [ReadabiliPy](https://github.com/alan-turing-institute/ReadabiliPy) is used for sanitation of the HTML code;
-- [Epub-builder](https://github.com/lise-henry/epub-builder) for building actual epub archive.
+This project was made possible by the wonderful Rust ecosystem and community.
+Particularly, [Epub-builder](https://github.com/lise-henry/epub-builder) simplified
+zipping and organizing files in the epub archive.

@@ -61,9 +61,10 @@ impl Document {
             Ok(url) => { println!("{}", url) },
             Err(e) => {
                 println!("Error {}, return.", e);
+                // return Err(InvalidUrl)
                 return Ok(())  // TODO: Implement Error InvalidURL
             }
-        };
+        };  // match target_url
 
         let tmp_dir = Builder::new().prefix("rustpub_").tempdir()?;  // Make temp dir
         let tmp_dir_path = tmp_dir.into_path();  // Persist the tempdir and return PathBuf
@@ -240,7 +241,7 @@ impl Document {
                                 },  // Relative URL error
                                 _ => {
                                     // println!("errore: {}", e);
-                                    return Vec::new()  // TODO: proper error
+                                    return Vec::new()  // TODO: error
                                 }  // Unknown error
                             };  // match error
                         }  // if error
@@ -251,7 +252,7 @@ impl Document {
                 urls
             },
             None => {
-                Vec::new()  // TODO: error
+                Vec::new()  // No images
             } // Empty vector
         };
 
