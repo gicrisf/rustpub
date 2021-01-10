@@ -52,7 +52,7 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn epub_from_url(target: String, output: String, parser: RustpubParser) -> Result<()> {
+    pub async fn epub_from_url(target: String, output: String, parser: RustpubParser) -> Result<()> {
         // Parse target URL
         let target_url = Url::parse(&target);
 
@@ -73,6 +73,7 @@ impl Document {
         match parser {
             RustpubParser::ReadabilityRs => {
                 let product = extractor::scrape(&target)?;
+                // println!("{}", product.text);
 
                 document = Document {
                     title: Some(product.title),
@@ -84,7 +85,7 @@ impl Document {
             },
             RustpubParser::ReadabilityJs | RustpubParser::ReadabiliPy => {
                 // Make HTTP request for target file
-                let response = reqwest::blocking::get(&target.clone())?; // TODO: use non-blocking async
+                let response = reqwest::get(&target.clone()).await?;
 
                 // Choosing filename
                 let filename = response
@@ -100,7 +101,7 @@ impl Document {
                 let local_abs_path = tmp_dir_path.clone().join(filename);
                 let local_abs_pathstr = local_abs_path.clone().into_os_string().into_string().unwrap();
                 let mut destination = fs::File::create(local_abs_path.clone())?;
-                let html_string = response.text()?;
+                let html_string = response.text().await?;
                 io::copy(&mut html_string.as_bytes(), &mut destination).expect("Failed to copy HTML file");
 
                 // Generate json file with ReadabiliPy
@@ -127,7 +128,7 @@ impl Document {
 
         for url in image_urls {
             // Make HTTP request for target file
-            let mut response = reqwest::blocking::get(target.as_str())?; // TODO: use non-blocking async
+            let response = reqwest::get(target.as_str()).await?;
 
             // Choosing filename
             let filename = response
@@ -148,7 +149,9 @@ impl Document {
             let filename = filename.replace(&point_ext, "");
             let mut destination = fs::File::create(local_abs_path.clone())?;
 
-            io::copy(&mut response, &mut destination).expect("Failed to copy image to dest.");
+            let mut bytes = &response.bytes().await?[..];
+
+            io::copy(&mut bytes, &mut destination).expect("Failed to copy image to dest.");
 
             let meta = ImgMeta {
                 url: Some(url),
@@ -159,6 +162,8 @@ impl Document {
 
             image_metas.push(meta);
         }
+
+        // Image URL correction in content
 
         // Build epub
         let mut epub: Vec<u8> = vec!();

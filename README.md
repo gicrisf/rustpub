@@ -56,7 +56,7 @@ and zip everything in a epub file with the proper file hierarchy and metadata.
 
 ```
 CLI -> HTML downloading -> HTML parsing -> Image downloading
--> Image optimization -> Epub file generation -> Your Epub 
+-> Image optimization -> Epub file generation -> Your Epub
 ```
 
 ## Alternative parsers installation
@@ -84,10 +84,10 @@ $ pip install readabilipy
 
 Now you're ready to go with `--parser py`.
 
-> But I want Modilla Javascript parser! I want to be sure my ebooks will be like
+> But I want Mozilla Javascript parser! I want to be sure my ebooks will be like
 reader-mode firefox version of my articles.
 
-Then you need Node JS. If you haven't, [install it too](https://nodejs.org/).
+Then you need Node JS. If you have not, [install it too](https://nodejs.org/).
 If you already have Node, just use `--parser js` as argument and you will not
 be disappointed.
 

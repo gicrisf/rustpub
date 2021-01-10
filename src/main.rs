@@ -1,21 +1,9 @@
-mod cli;
-mod cmd;
-mod epub;
-// mod error;
+use rustpub::cli::Arguments;
+use rustpub::epub::Document;
+use rustpub::RustpubParser;
 
-use crate::cli::Arguments;
-use epub::Document;
-
-#[macro_use]
-extern crate error_chain;
-
-pub enum RustpubParser {
-    ReadabiliPy,
-    ReadabilityJs,
-    ReadabilityRs,
-}
-
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Arguments::cli();
     let url = args.url.unwrap_or(args.rustpub_test_url);
 
@@ -28,5 +16,6 @@ fn main() {
         _ => RustpubParser::ReadabilityRs,
     };
 
-    let _res = Document::epub_from_url(url, args.output, parser);
+    let _res = Document::epub_from_url(url, args.output, parser).await;
+    ()
 }
