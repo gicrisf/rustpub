@@ -1,13 +1,8 @@
 pub mod cli;
 pub mod cmd;
 pub mod epub;
-// pub mod error;
+pub mod parse;
+pub mod error;
+pub mod img;
 
-#[macro_use]
-extern crate error_chain;
-
-pub enum RustpubParser {
-    ReadabiliPy,
-    ReadabilityJs,
-    ReadabilityRs,
-}
+#[macro_use] extern crate error_chain;

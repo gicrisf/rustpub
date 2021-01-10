@@ -1,13 +1,13 @@
-use std::{error::Error as MyError, fmt};
-
-pub enum RpError {
-    Unexpected
-}
-
-impl fmt::Display for RpError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            MyError::InvalidUrl => write!(f, "InvalidUrl"),
-        }
-    }  // fmt
+pub mod errors {
+    error_chain! {
+         foreign_links {
+             Io(std::io::Error);
+             HttpRequest(reqwest::Error);
+             EpubBuilding(epub_builder::Error);
+             ImageReading(image::ImageError);
+             Tera(tera::Error);
+             Readability(readability::error::Error);
+             Anyhow(anyhow::Error);
+         }
+    }
 }

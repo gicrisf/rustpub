@@ -1,5 +1,5 @@
 use std::process::Command;
-use crate::RustpubParser;
+use crate::parse::RustpubParser;
 
 pub struct ReadabiliPyCmd {}
 

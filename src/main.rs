@@ -1,6 +1,6 @@
 use rustpub::cli::Arguments;
 use rustpub::epub::Document;
-use rustpub::RustpubParser;
+use rustpub::parse::RustpubParser;
 
 #[tokio::main]
 async fn main() {
@@ -17,5 +17,4 @@ async fn main() {
     };
 
     let _res = Document::epub_from_url(url, args.output, parser).await;
-    ()
 }
