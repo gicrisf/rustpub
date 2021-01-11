@@ -1,18 +1,21 @@
 use clap::{crate_version, Arg};
 use std::env;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Arguments {
     pub url: Option<String>,
     pub output: String,
-    pub rustpub_test_url: String,
+    pub test_url: String,
     pub verbose: bool,
     pub parser: Option<String>,
+    pub bw_images: bool,
+    pub image_max_size: Option<usize>,
 }
 
 impl Arguments {
     pub fn cli() -> Arguments {
         let env_key = env::var("RUSTPUB_TEST_URL");
+        let env_max = env::var("RUSTPUB_MAX_IMG");
 
         let matches = clap::App::new("rustpub")
             .version(crate_version!())
@@ -50,6 +53,20 @@ impl Arguments {
                     .required(false),
             )
             .arg(
+                Arg::with_name("image_max_size")
+                    .long("max")
+                    .help("Set Image's MAX size (no aspect ratio alterations)")
+                    .takes_value(true)
+                    .required(false),
+            )
+            .arg(
+                Arg::with_name("bw_images")
+                    .long("bw")
+                    .help("Save space on disk converting every image to a B&W equivalent with no Alpha channel")
+                    .takes_value(false)
+                    .required(false),
+            )
+            .arg(
                 Arg::with_name("verbose")
                     .short("v")
                     .long("verbose")
@@ -65,9 +82,22 @@ impl Arguments {
                 None => "ebook".to_string(),
             },
 
+            image_max_size: match matches.value_of("image_max_size") {
+                Some(d) => Some(d.to_string().parse::<usize>().unwrap()),
+                None => {
+                    if !env_max.is_err() {
+                        Some(env_max.unwrap().to_string().parse::<usize>().unwrap())
+                    } else {
+                        None
+                    }
+                },
+            },
+
+            bw_images: matches.is_present("bw_images"),
+
             parser: matches.value_of("parser").map(|s| s.to_string()),
 
-            rustpub_test_url: match matches.value_of("test_url") {
+            test_url: match matches.value_of("test_url") {
                 Some(a) => a.to_string(),
                 None => {
                     if !env_key.is_err() {

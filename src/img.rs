@@ -1,11 +1,11 @@
 extern crate soup;
 extern crate url;
-// extern crate image;
+extern crate image;
 
 use soup::prelude::*;
 use url::{Url, ParseError};
 use std::path::PathBuf;
-// use image::io::Reader as ImageReader;
+// use image::io::Reader;
 
 #[derive(Debug)]
 pub struct ImgMeta {
@@ -18,13 +18,17 @@ pub struct ImgMeta {
 pub struct ImgProc {
     target: String,
     tmp_dir_path: PathBuf,
+    bw: bool,
+    max_size: usize,
 }
 
 impl ImgProc {
-    pub fn new(target: String, tmp_dir_path: PathBuf) -> Self {
+    pub fn new(target: String, tmp_dir_path: PathBuf, max_size: usize, bw: bool) -> Self {
         Self {
             target,
             tmp_dir_path,
+            bw,
+            max_size,
         }
     }
 
@@ -46,6 +50,15 @@ impl ImgProc {
                 }  // match error
             }  // if error
         }  // match url parse
+    }
+
+    fn img_opt(&self, original: &[u8]) -> anyhow::Result<Vec<u8>> {
+        // let img = image::open(pathstr).expect("Image optimization failed in opening file.");
+        let img = image::load_from_memory(original).expect("Image optimization failed in loading original");
+        let thumb = img.thumbnail(self.max_size as u32, self.max_size as u32);
+        let mut bytes: Vec<u8> = Vec::new();
+        thumb.write_to(&mut bytes, image::ImageOutputFormat::Png)?;
+        Ok(bytes)
     }
 
     pub async fn extract(&self, content: String) -> anyhow::Result<Vec<ImgMeta>> {
@@ -80,7 +93,7 @@ impl ImgProc {
                 .into_string()
                 .expect("Error converting local abs path to string.");
 
-            let ext = match local_abs_path.extension() {
+            let ext: Option<String> = match local_abs_path.extension() {
                 Some(file_ext) => {
                     let extension = file_ext
                         .to_os_string()
@@ -93,14 +106,18 @@ impl ImgProc {
 
                     Some(extension)
                 },
-                None => {
-                    None  // No extension
-                }
+                None => None  // No extension
             };
 
             // Copy file to temp dir
             let mut destination = std::fs::File::create(local_abs_path.clone())?;
             let mut bytes = &response.bytes().await?[..];
+
+            // optimization
+            let thumbnail = self.img_opt(bytes);
+            let mut bytes = &thumbnail?[..];
+
+            // Save on disk
             std::io::copy(&mut bytes, &mut destination).expect("Failed to copy image to dest.");
 
             // Return meta object

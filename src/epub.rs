@@ -13,6 +13,7 @@ use url::Url;
 use serde::Deserialize;
 use epub_builder::{EpubBuilder, ZipLibrary, EpubContent};
 
+use crate::cli::Arguments;
 use crate::parse::{ParserKind, Parser};
 use crate::error::errors::*;
 use crate::img::{ImgProc, ImgMeta};
@@ -27,7 +28,20 @@ pub struct Document {
 }
 
 impl Document {
-    pub async fn epub_from_url(target: String, output: String, parser: ParserKind) -> Result<()> {
+    pub async fn epub_from_url(args: Arguments) -> Result<()> {
+        // Get vars from args
+        let target = args.url.unwrap_or(args.test_url);
+        let parser = args.parser.unwrap_or("".into());
+        let image_max_size = args.image_max_size;
+        let bw_images = args.gray_images;
+
+        let parser = match &parser[..] {
+            "py" => ParserKind::ReadabiliPy,
+            "js" => ParserKind::ReadabilityJs,
+            "rs" => ParserKind::ReadabilityRs,
+            _ => ParserKind::ReadabilityRs,
+        };
+
         // Parse target URL
         let target_url = Url::parse(&target);
 
@@ -55,7 +69,7 @@ impl Document {
             }
         };
 
-        let img_proc = ImgProc::new(target.clone(), tmp_dir_path.clone());
+        let img_proc = ImgProc::new(target.clone(), tmp_dir_path.clone(), image_max_size.unwrap_or(100), bw_images);
         let image_metas: Vec<ImgMeta>;
 
         match document.clone().content {
@@ -68,6 +82,7 @@ impl Document {
         }
 
         // Build epub
+        let output: String = args.output;
         let mut epub: Vec<u8> = vec!();
         let epub_filename = format!("{}.epub", output);
         // TODO: use sluggified title if None
