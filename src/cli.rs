@@ -1,7 +1,7 @@
 use clap::{crate_version, Arg};
 use std::env;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Arguments {
     pub url: Option<String>,
     pub output: String,
@@ -9,7 +9,7 @@ pub struct Arguments {
     pub verbose: bool,
     pub parser: Option<String>,
     pub bw_images: bool,
-    pub image_max_size: Option<usize>,
+    pub image_max_size: Option<u32>,
 }
 
 impl Arguments {
@@ -55,7 +55,7 @@ impl Arguments {
             .arg(
                 Arg::with_name("image_max_size")
                     .long("max")
-                    .help("Set Image's MAX size (no aspect ratio alterations)")
+                    .help("Set Image's MAX size (preserve aspect ratio)")
                     .takes_value(true)
                     .required(false),
             )
@@ -83,10 +83,10 @@ impl Arguments {
             },
 
             image_max_size: match matches.value_of("image_max_size") {
-                Some(d) => Some(d.to_string().parse::<usize>().unwrap()),
+                Some(d) => Some(d.to_string().parse::<u32>().unwrap()),
                 None => {
                     if !env_max.is_err() {
-                        Some(env_max.unwrap().to_string().parse::<usize>().unwrap())
+                        Some(env_max.unwrap().to_string().parse::<u32>().unwrap())
                     } else {
                         None
                     }

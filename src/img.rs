@@ -19,11 +19,11 @@ pub struct ImgProc {
     target: String,
     tmp_dir_path: PathBuf,
     bw: bool,
-    max_size: usize,
+    max_size: u32,
 }
 
 impl ImgProc {
-    pub fn new(target: String, tmp_dir_path: PathBuf, max_size: usize, bw: bool) -> Self {
+    pub fn new(target: String, tmp_dir_path: PathBuf, max_size: u32, bw: bool) -> Self {
         Self {
             target,
             tmp_dir_path,
@@ -53,9 +53,15 @@ impl ImgProc {
     }
 
     fn img_opt(&self, original: &[u8]) -> anyhow::Result<Vec<u8>> {
-        // let img = image::open(pathstr).expect("Image optimization failed in opening file.");
-        let img = image::load_from_memory(original).expect("Image optimization failed in loading original");
-        let thumb = img.thumbnail(self.max_size as u32, self.max_size as u32);
+        let img = image::load_from_memory(original)
+            .expect("Image optimization failed in loading original file");
+
+        let mut thumb = img.thumbnail(self.max_size as u32, self.max_size as u32);
+
+        if self.bw {
+            thumb = image::DynamicImage::ImageLuma8(thumb.into_luma8());
+        };
+
         let mut bytes: Vec<u8> = Vec::new();
         thumb.write_to(&mut bytes, image::ImageOutputFormat::Png)?;
         Ok(bytes)
@@ -73,8 +79,8 @@ impl ImgProc {
             // Make HTTP request for target file
             let response = reqwest::get(image_url.as_str()).await?;
 
-            // Choosing filename
-            let mut filename = response
+            // Getting filename
+            let filename = response
                 .url()
                 .path_segments()
                 .and_then(|segments| segments.last())
@@ -93,6 +99,7 @@ impl ImgProc {
                 .into_string()
                 .expect("Error converting local abs path to string.");
 
+            // Get extension
             let ext: Option<String> = match local_abs_path.extension() {
                 Some(file_ext) => {
                     let extension = file_ext
@@ -100,9 +107,9 @@ impl ImgProc {
                         .into_string()
                         .unwrap();
 
-                    let point_ext = format!(".{}", extension.clone());
-                    let new_filename = &filename.replace(&point_ext, "");
-                    filename = new_filename.to_string();
+                    // let point_ext = format!(".{}", extension.clone());
+                    // let new_filename = &filename.replace(&point_ext, "");
+                    // filename = new_filename.to_string();
 
                     Some(extension)
                 },
@@ -111,11 +118,30 @@ impl ImgProc {
 
             // Copy file to temp dir
             let mut destination = std::fs::File::create(local_abs_path.clone())?;
-            let mut bytes = &response.bytes().await?[..];
+            let bytes = &response.bytes().await?[..];
 
-            // optimization
-            let thumbnail = self.img_opt(bytes);
-            let mut bytes = &thumbnail?[..];
+            // (very UGLY) optimization
+            let guess = image::io::Reader::open(local_abs_pathstr.clone())?
+                .with_guessed_format()?
+                .into_dimensions();
+
+            let dimensions = match guess {
+                Ok(guessed) => {
+                    println!("{:?}", &guessed);
+                    guessed
+                },
+                Err(_) => (0,0)
+            };
+
+            let thumbnail;
+
+            if (dimensions.0 > self.max_size) || (dimensions.1 > self.max_size) {
+                thumbnail = self.img_opt(bytes)?;
+            } else {
+                thumbnail = bytes.to_vec();
+            }
+
+            let mut bytes = &thumbnail[..];
 
             // Save on disk
             std::io::copy(&mut bytes, &mut destination).expect("Failed to copy image to dest.");
