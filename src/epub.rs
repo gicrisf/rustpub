@@ -13,9 +13,9 @@ use url::Url;
 use serde::Deserialize;
 use epub_builder::{EpubBuilder, ZipLibrary, EpubContent};
 
-use crate::parse::{RustpubParser, readability_rs_parse, readabilipy_parse};
+use crate::parse::{ParserKind, Parser};
 use crate::error::errors::*;
-use crate::img::{extract_image_urls, download_images};
+use crate::img::{ImgProc, ImgMeta};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Document {
@@ -27,7 +27,7 @@ pub struct Document {
 }
 
 impl Document {
-    pub async fn epub_from_url(target: String, output: String, parser: RustpubParser) -> Result<()> {
+    pub async fn epub_from_url(target: String, output: String, parser: ParserKind) -> Result<()> {
         // Parse target URL
         let target_url = Url::parse(&target);
 
@@ -46,26 +46,32 @@ impl Document {
         let document: Document;
 
         match parser {
-            RustpubParser::ReadabilityRs => {
-                document = readability_rs_parse(&target)?;
+            ParserKind::ReadabilityRs => {
+                document = Parser::default(&target)?;
             },
-            RustpubParser::ReadabilityJs | RustpubParser::ReadabiliPy => {
-                let json_file = readabilipy_parse(&target, parser, tmp_dir_path.clone()).await?;
+            ParserKind::ReadabilityJs | ParserKind::ReadabiliPy => {
+                let json_file = Parser::readabilipy(&target, parser, tmp_dir_path.clone()).await?;
                 document = serde_json::from_reader(json_file).expect("error reading json");
             }
         };
 
-        // Get absolute image urls
-        let image_urls = extract_image_urls(target.clone(), document.clone().content);
-        // Download images and store metadata
-        let image_metas = download_images(image_urls, target.clone(), tmp_dir_path.clone()).await?;
+        let img_proc = ImgProc::new(target.clone(), tmp_dir_path.clone());
+        let image_metas: Vec<ImgMeta>;
 
-        // TODO: Image URL correction in content
+        match document.clone().content {
+            Some(content) => {
+                image_metas = img_proc.extract(content).await?;
+            },
+            None => {
+                panic!("No content found in the selected article!")
+            }
+        }
 
         // Build epub
         let mut epub: Vec<u8> = vec!();
         let epub_filename = format!("{}.epub", output);
-        let mut epub_dest = fs::File::create(epub_filename)?;  // TODO: use sluggified title if None
+        // TODO: use sluggified title if None
+        let mut epub_dest = fs::File::create(epub_filename)?;
 
         let epub_title = document.title.unwrap_or("Unknown".into());
         let epub_author = document.byline.unwrap_or("Unknown".into());

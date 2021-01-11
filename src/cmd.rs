@@ -1,14 +1,14 @@
 use std::process::Command;
-use crate::parse::RustpubParser;
+use crate::parse::ParserKind;
 
 pub struct ReadabiliPyCmd {}
 
 impl ReadabiliPyCmd {
-    pub fn json_from_file(parser: RustpubParser, html_fpath: String, json_fpath: String) -> String {
+    pub fn json_from_file(parser: ParserKind, html_fpath: String, json_fpath: String) -> String {
 
         let parser_arg = match parser {
-            RustpubParser::ReadabiliPy => { "-p" },
-            RustpubParser::ReadabilityJs => { "" },
+            ParserKind::ReadabiliPy => { "-p" },
+            ParserKind::ReadabilityJs => { "" },
             _ => "",
         };
 
