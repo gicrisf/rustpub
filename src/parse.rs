@@ -6,6 +6,47 @@ use crate::error::errors::*;
 use crate::epub::Document;
 use crate::cmd::ReadabiliPyCmd;
 
+pub struct MyScraper {
+    fragment: scraper::html::Html
+}
+
+impl MyScraper {
+    pub fn new(html: &str) -> Self {
+        let fragment = scraper::Html::parse_fragment(&html);
+        Self { fragment }
+    } // new
+
+    fn extract_from_meta_string(&self, meta_string: &str) -> String {
+        let extracted = match scraper::Selector::parse(&meta_string) {
+            Ok(selection) => {
+                let mut content = format!("Unknown {}", meta_string);
+
+                for element in self.fragment.select(&selection) {
+                    content = element.value().attr("content").unwrap_or("Unknown").into();
+                };
+
+                content
+            },
+            Err(e) => {
+                println!("{:?}", e);
+                "Unknown".into()
+            }
+        };
+
+        extracted
+    }
+
+    pub fn extract_meta_name(&self, name: &str) -> String {
+        let meta_string = format!("meta[name=\"{}\"]", name);
+        self.extract_from_meta_string(&meta_string)
+    }  // extract_meta_property
+
+    pub fn extract_meta_property(&self, property: &str) -> String {
+        let meta_string = format!("meta[property=\"{}\"]", property);
+        self.extract_from_meta_string(&meta_string)
+    }  // extract_meta_property
+}
+
 pub enum ParserKind {
     ReadabiliPy,
     ReadabilityJs,
@@ -21,8 +62,8 @@ impl Parser {
 
         let document = Document {
             title: Some(product.title),
-            byline: Some("Author".into()),  // TODO
-            date: Some("Date".into()),  // TODO
+            byline: Some("Unknown".into()),
+            date: Some("Unknown".into()),
             content: Some(product.content),
             plain_text: Some(product.text),
         };

@@ -13,7 +13,7 @@ use url::Url;
 use serde::Deserialize;
 use epub_builder::{EpubBuilder, ZipLibrary, EpubContent};
 
-use crate::parse::{ParserKind, Parser};
+use crate::parse::{ParserKind, Parser, MyScraper};
 use crate::error::errors::*;
 use crate::img::{ImgProc, ImgMeta};
 
@@ -47,7 +47,24 @@ impl Document {
 
         match parser {
             ParserKind::ReadabilityRs => {
-                document = Parser::default(&target)?;
+                let mut doc = Parser::default(&target)?;
+
+                // Add author and title from og:property
+                let resp = reqwest::get(&target).await?;
+                assert!(resp.status().is_success());
+                let html_string = resp.text_with_charset("utf-8").await?;
+                let my_scraper = MyScraper::new(&html_string);
+
+                // Title correction
+                doc.title = Some(my_scraper.extract_meta_property("og:title"));
+
+                // Author found?
+                doc.byline = Some(my_scraper.extract_meta_property("og:author"));
+
+                // Date found?
+                doc.date = Some(my_scraper.extract_meta_name("article:published_time"));
+                document = doc;
+
             },
             ParserKind::ReadabilityJs | ParserKind::ReadabiliPy => {
                 let json_file = Parser::readabilipy(&target, parser, tmp_dir_path.clone()).await?;
@@ -73,8 +90,8 @@ impl Document {
         // TODO: use sluggified title if None
         let mut epub_dest = fs::File::create(epub_filename)?;
 
-        let epub_title = document.title.unwrap_or("Unknown".into());
-        let epub_author = document.byline.unwrap_or("Unknown".into());
+        let epub_title = document.title.unwrap_or("Title unknown".into());
+        let epub_author = document.byline.unwrap_or("Author unknown".into());
 
         let css_file = fs::File::open(&"assets/stylesheet.css")?;
 
@@ -92,7 +109,8 @@ impl Document {
         let mut context = tera::Context::new();
         context.insert("title", &epub_title);
         context.insert("author", &epub_author);
-        context.insert("content", &document.content.unwrap_or("Unknown".into()));
+        context.insert("date", &document.date.unwrap_or("Date unknown".into()));
+        context.insert("content", &document.content.unwrap_or("Content unknown".into()));
 
         let epub_content = tera.render("introduction.html", &context)?;
 
