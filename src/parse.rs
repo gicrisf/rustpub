@@ -6,45 +6,93 @@ use crate::error::errors::*;
 use crate::epub::Document;
 use crate::cmd::ReadabiliPyCmd;
 
-pub struct MyScraper {
+pub struct MetaScraper {
     fragment: scraper::html::Html
 }
 
-impl MyScraper {
+impl MetaScraper {
     pub fn new(html: &str) -> Self {
         let fragment = scraper::Html::parse_fragment(&html);
         Self { fragment }
     } // new
 
-    fn extract_from_meta_string(&self, meta_string: &str) -> String {
+    fn extract_from_meta_string(&self, meta_string: &str) -> Option<&str> {
         let extracted = match scraper::Selector::parse(&meta_string) {
             Ok(selection) => {
-                let mut content = format!("Unknown {}", meta_string);
+                let mut content = None;
 
                 for element in self.fragment.select(&selection) {
-                    content = element.value().attr("content").unwrap_or("Unknown").into();
+                    content = element.value().attr("content");  // &str
                 };
 
                 content
             },
             Err(e) => {
                 println!("{:?}", e);
-                "Unknown".into()
+                None
             }
         };
 
         extracted
     }
 
-    pub fn extract_meta_name(&self, name: &str) -> String {
+    fn extract_meta_name(&self, name: &str) -> Option<&str> {
         let meta_string = format!("meta[name=\"{}\"]", name);
         self.extract_from_meta_string(&meta_string)
-    }  // extract_meta_property
+    }  // extract_meta_name
 
-    pub fn extract_meta_property(&self, property: &str) -> String {
+    fn extract_meta_property(&self, property: &str) -> Option<&str> {
         let meta_string = format!("meta[property=\"{}\"]", property);
         self.extract_from_meta_string(&meta_string)
     }  // extract_meta_property
+
+    fn extract_meta_itemprop(&self, itemprop: &str) -> Option<&str> {
+        let meta_string = format!("meta[itemprop=\"{}\"]", itemprop);
+        self.extract_from_meta_string(&meta_string)
+    }
+
+    // Public wrapper functions
+    pub fn extract_date(&self) -> Option<String> {
+        let date = match self.extract_meta_name("article:published_time") {
+            Some(d) => Some(d.into()),
+            None => {
+                match self.extract_meta_property("og:updated_time") {
+                    Some(og_d) => Some(og_d.into()),
+                    None => {
+                        match self.extract_meta_itemprop("datePublished") {
+                            Some(schema_d) => Some(schema_d.into()),
+                            None => None
+                        }  // match schema_d
+                    }  // No og updated_time
+                }  // match og updated_time
+            }  // No article:published_time
+        };
+
+        date  // match article:published_time
+    }
+
+    pub fn extract_title(&self) -> Option<String> {
+        let title = match self.extract_meta_property("og:title") {
+            Some(t) => Some(t.into()),
+            None => {
+                match self.extract_meta_name("twitter:title") {
+                    Some(twitter_t) => Some(twitter_t.into()),
+                    None => None
+                }  // match twitter
+            }  // No og title
+        };  // match og title
+
+        title
+    }  // extract title
+
+    pub fn extract_author(&self) -> Option<String> {
+        let author = match self.extract_meta_property("og:author") {
+            Some(a) => Some(a.into()),
+            None => None
+        };
+
+        author
+    }  // extract_author
 }
 
 pub enum ParserKind {

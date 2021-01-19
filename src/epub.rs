@@ -13,7 +13,7 @@ use url::Url;
 use serde::Deserialize;
 use epub_builder::{EpubBuilder, ZipLibrary, EpubContent};
 
-use crate::parse::{ParserKind, Parser, MyScraper};
+use crate::parse::{ParserKind, Parser, MetaScraper};
 use crate::error::errors::*;
 use crate::img::{ImgProc, ImgMeta};
 
@@ -53,16 +53,11 @@ impl Document {
                 let resp = reqwest::get(&target).await?;
                 assert!(resp.status().is_success());
                 let html_string = resp.text_with_charset("utf-8").await?;
-                let my_scraper = MyScraper::new(&html_string);
+                let my_scraper = MetaScraper::new(&html_string);
 
-                // Title correction
-                doc.title = Some(my_scraper.extract_meta_property("og:title"));
-
-                // Author found?
-                doc.byline = Some(my_scraper.extract_meta_property("og:author"));
-
-                // Date found?
-                doc.date = Some(my_scraper.extract_meta_name("article:published_time"));
+                doc.title = my_scraper.extract_title();  // -> Option<String>
+                doc.byline = my_scraper.extract_author();
+                doc.date = my_scraper.extract_date();
                 document = doc;
 
             },
@@ -71,6 +66,7 @@ impl Document {
                 document = serde_json::from_reader(json_file).expect("error reading json");
             }
         };
+
 
         let img_proc = ImgProc::new(target.clone(), tmp_dir_path.clone(), max_size, bw_images);
         let image_metas: Vec<ImgMeta>;
